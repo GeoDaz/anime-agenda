@@ -23,6 +23,18 @@
  * supposees — cf. scripts/probe-betaseries.mjs.
  */
 
+import type {
+  BsAuthResponse,
+  BsEnvelope,
+  BsEpisodesToWatchResponse,
+  BsMemberResponse,
+  BsPlanningResponse,
+  BsPlatformsResponse,
+  BsShowEpisodesResponse,
+  BsShowResponse,
+  BsShowsResponse,
+} from './types';
+
 const BASE = 'https://api.betaseries.com';
 
 /** La version est exigee par l'API ; elle fige le format des reponses. */
@@ -145,14 +157,14 @@ export async function request<T = unknown>(
  * HTTPS et n'est jamais conserve : seul le jeton retourne est stocke.
  */
 export function authenticate(apiKey: string, login: string, password: string) {
-  return request<unknown>('POST', '/members/auth', { apiKey }, {
+  return request<BsAuthResponse>('POST', '/members/auth', { apiKey }, {
     body: { login, password },
   });
 }
 
 /** Informations du membre connecte. Sert aussi a valider un jeton. */
 export function memberInfos(creds: BetaSeriesCredentials, id?: number) {
-  return request<unknown>('GET', '/members/infos', creds, { query: { id } });
+  return request<BsMemberResponse>('GET', '/members/infos', creds, { query: { id } });
 }
 
 /**
@@ -163,27 +175,27 @@ export function searchShows(
   creds: BetaSeriesCredentials,
   params: { title: string; platforms?: string; country?: string; nbpp?: number; page?: number }
 ) {
-  return request<unknown>('GET', '/shows/search', creds, { query: params });
+  return request<BsShowsResponse>('GET', '/shows/search', creds, { query: params });
 }
 
 export function showDisplay(creds: BetaSeriesCredentials, id: number) {
-  return request<unknown>('GET', '/shows/display', creds, { query: { id } });
+  return request<BsShowResponse>('GET', '/shows/display', creds, { query: { id } });
 }
 
 export function showEpisodes(
   creds: BetaSeriesCredentials,
   params: { id: number; season?: number; episode?: number }
 ) {
-  return request<unknown>('GET', '/shows/episodes', creds, { query: params });
+  return request<BsShowEpisodesResponse>('GET', '/shows/episodes', creds, { query: params });
 }
 
 /** Ajoute une serie au compte du membre. C'est le « sauvegarder dessus ». */
 export function addShow(creds: BetaSeriesCredentials, id: number) {
-  return request<unknown>('POST', '/shows/show', creds, { body: { id } });
+  return request<BsEnvelope>('POST', '/shows/show', creds, { body: { id } });
 }
 
 export function removeShow(creds: BetaSeriesCredentials, id: number) {
-  return request<unknown>('DELETE', '/shows/show', creds, { query: { id } });
+  return request<BsEnvelope>('DELETE', '/shows/show', creds, { query: { id } });
 }
 
 /**
@@ -194,7 +206,7 @@ export function memberPlanning(
   creds: BetaSeriesCredentials,
   params: { month?: string; unseen?: boolean; id?: number } = {}
 ) {
-  return request<{ episodes?: unknown[] }>('GET', '/planning/member', creds, {
+  return request<BsPlanningResponse>('GET', '/planning/member', creds, {
     query: { month: params.month, unseen: params.unseen ? 1 : undefined, id: params.id },
   });
 }
@@ -204,7 +216,7 @@ export function generalPlanning(
   creds: BetaSeriesCredentials,
   params: { date?: string; before?: number; after?: number } = {}
 ) {
-  return request<unknown>('GET', '/planning/general', creds, { query: params });
+  return request<BsPlanningResponse>('GET', '/planning/general', creds, { query: params });
 }
 
 /** Episodes restant a voir, filtrables par plateforme. */
@@ -212,23 +224,23 @@ export function episodesToWatch(
   creds: BetaSeriesCredentials,
   params: { limit?: number; showId?: number; platforms?: string } = {}
 ) {
-  return request<unknown>('GET', '/episodes/list', creds, { query: params });
+  return request<BsEpisodesToWatchResponse>('GET', '/episodes/list', creds, { query: params });
 }
 
 export function markWatched(
   creds: BetaSeriesCredentials,
   params: { id: number; bulk?: boolean; date?: string }
 ) {
-  return request<unknown>('POST', '/episodes/watched', creds, {
+  return request<BsEnvelope>('POST', '/episodes/watched', creds, {
     body: { id: params.id, bulk: params.bulk ? 1 : undefined, date: params.date },
   });
 }
 
 export function unmarkWatched(creds: BetaSeriesCredentials, id: number) {
-  return request<unknown>('DELETE', '/episodes/watched', creds, { query: { id } });
+  return request<BsEnvelope>('DELETE', '/episodes/watched', creds, { query: { id } });
 }
 
 /** Plateformes SVOD/VOD disponibles dans un pays. Remplace notre table locale. */
 export function platformsList(creds: BetaSeriesCredentials, country = 'FR') {
-  return request<unknown>('GET', '/platforms/list', creds, { query: { country } });
+  return request<BsPlatformsResponse>('GET', '/platforms/list', creds, { query: { country } });
 }

@@ -1,0 +1,31 @@
+{
+  "name": "anime-agenda",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Agenda hebdomadaire des sorties d'animes et series sur les plateformes FR (PWA)",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "icons": "node scripts/generate-icons.mjs",
+    "dump": "node scripts/dump-catalog.mjs"
+  },
+  "dependencies": {
+    "date-fns": "^4.4.0",
+    "idb": "^8.0.3",
+    "next": "^15.5.22",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^26.1.2",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "postcss": "^8.5.26",
+    "sharp": "^0.35.3",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^5.9.3"
+  }
+}

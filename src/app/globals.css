@@ -1,0 +1,129 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    sans-serif;
+}
+
+:root {
+  --bg: #f7f7f8;
+  --surface: #ffffff;
+  --surface-2: #f0f0f2;
+  --border: #e3e3e7;
+  --text: #17171a;
+  --text-muted: #6b6b75;
+  --accent: #6d5efc;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0d0d10;
+    --surface: #17171c;
+    --surface-2: #1f1f26;
+    --border: #2a2a33;
+    --text: #f2f2f5;
+    --text-muted: #9a9aa6;
+    --accent: #8b7dff;
+    color-scheme: dark;
+  }
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--text);
+}
+
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  /* Evite le rebond elastique iOS qui fait paraitre la PWA "web". */
+  overscroll-behavior-y: none;
+}
+
+/* Zone sure iOS : la barre de navigation basse ne passe pas sous le home indicator. */
+.pb-safe {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+}
+.pt-safe {
+  padding-top: max(0.75rem, env(safe-area-inset-top));
+}
+
+/* Masque la scrollbar sur les rails horizontaux (filtres, jours). */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Safari ignore `list-style: none` sur <summary> et garde son propre triangle :
+   il faut viser explicitement son pseudo-element, sinon l'accordeon affiche
+   deux chevrons sur iPhone. */
+summary::-webkit-details-marker {
+  display: none;
+}
+summary::marker {
+  content: '';
+}
+
+/* Chargement : bandeau qui balaie la surface. Plus lisible qu'un simple
+   clignotement d'opacite quand plusieurs lignes chargent en meme temps. */
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background-color: var(--surface-2);
+  border-radius: 0.375rem;
+}
+
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background-image: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--text) 8%, transparent),
+    transparent
+  );
+  animation: shimmer 1.4s infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spin {
+  animation: spin 0.7s linear infinite;
+}
+
+/* Respecte le reglage systeme : pas d'animation si l'utilisateur n'en veut pas. */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after,
+  .spin {
+    animation: none;
+  }
+}
+
+/* Cible tactile confortable au pouce. */
+.tap {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+@utility surface {
+  background-color: var(--surface);
+  border-color: var(--border);
+}

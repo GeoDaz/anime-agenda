@@ -17,6 +17,7 @@
  * endpoint, a partir de laquelle typer le client proprement.
  */
 
+import { createHash } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -29,14 +30,24 @@ const arg = (name) => {
   return hit ? hit.slice(name.length + 3).replace(/^["']|["']$/g, '') : null;
 };
 
-const KEY = arg('key');
-const LOGIN = arg('login');
-const PASSWORD = arg('password');
+/*
+ * La cle est lue depuis l'environnement en priorite, pour qu'elle n'apparaisse
+ * dans aucune ligne de commande ni dans un historique de shell :
+ *
+ *   node --env-file=.env scripts/probe-betaseries.mjs
+ *
+ * L'argument --key= reste accepte en secours.
+ */
+const KEY = process.env.BETA_SERIES_API_KEY ?? process.env.BETASERIES_API_KEY ?? arg('key');
+const LOGIN = process.env.BETA_SERIES_LOGIN ?? arg('login');
+const PASSWORD = process.env.BETA_SERIES_PASSWORD ?? arg('password');
 
 if (!KEY) {
   console.error(
     "\nIl manque la cle d'API.\n\n" +
-      '  node scripts/probe-betaseries.mjs --key=TA_CLE [--login=pseudo --password=xxx]\n\n' +
+      '  node --env-file=.env scripts/probe-betaseries.mjs\n' +
+      '    (attend BETA_SERIES_API_KEY dans .env)\n\n' +
+      '  ou : node scripts/probe-betaseries.mjs --key=TA_CLE\n\n' +
       'La cle se cree sur https://www.betaseries.com/api (compte BetaSeries requis).\n'
   );
   process.exit(1);
@@ -130,8 +141,16 @@ if (showId) {
 
 if (LOGIN && PASSWORD) {
   console.log('\n=== Connexion ===');
+  /*
+   * L'API attend le mot de passe en MD5, pas en clair : la spec le precise
+   * (« MD5 encrypted password »). Envoyer le mot de passe brut renvoie
+   * « 4003 Mot de passe incorrect », ce qui laisse croire a tort que
+   * l'identifiant est mauvais.
+   */
+  const hashed = createHash('md5').update(PASSWORD, 'utf8').digest('hex');
+  console.log(`  mot de passe hache en MD5 (${hashed.length} caracteres hex)`);
   const auth = await probe('members/auth', 'POST', '/members/auth', {
-    body: { login: LOGIN, password: PASSWORD },
+    body: { login: LOGIN, password: hashed },
   });
   token = auth?.token ?? auth?.user?.token ?? null;
   if (!token) {

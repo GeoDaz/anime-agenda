@@ -18,8 +18,8 @@ export type MediaKind = 'anime' | 'series';
  */
 export type MediaSubtype = 'live' | 'animation';
 
-/** D'ou vient la fiche a l'origine. `manual` = saisie a la main, aucun provider. */
-export type ProviderId = 'betaseries' | 'manual';
+/** Seule origine possible : BetaSeries fait autorite sur toute la bibliotheque. */
+export type ProviderId = 'betaseries';
 
 export type PlatformId =
   | 'crunchyroll'
@@ -49,16 +49,12 @@ export interface LocalOverrides {
   coverUrl?: string;
   platforms?: PlatformId[];
   totalEpisodes?: number | null;
-  /** Jour de parution 0=dimanche..6=samedi, pour les series sans planning provider. */
-  weekday?: number | null;
-  /** "HH:mm" heure locale, utilise avec weekday. */
-  time?: string | null;
   hidden?: boolean;
 }
 
 /** Une serie suivie, telle que stockee en IndexedDB. */
 export interface TrackedItem {
-  /** uid local stable : `${provider}:${externalId}` ou `manual:${uuid}`. */
+  /** uid local stable : `betaseries:${externalId}`. */
   id: string;
   kind: MediaKind;
   /** Live action ou animation. Absent sur les fiches d'avant ce champ. */
@@ -130,7 +126,7 @@ export interface AiringEntry {
   airsAt: number;
   platforms: PlatformId[];
   /** Qui a fourni cette date. Sert a arbitrer les conflits. */
-  source: 'betaseries' | 'manual';
+  source: 'betaseries';
   /** Lien direct de visionnage quand le provider en donne un. */
   url?: string | null;
   watched: boolean;

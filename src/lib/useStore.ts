@@ -80,16 +80,14 @@ export function useItems() {
   const reload = useCallback(() => {
     if (!sessionReady) return;
     if (!connected) {
-      // Hors connexion au compte, seules les fiches manuelles sont affichables.
-      getAllItems()
-        .then((rows) => setItems(rows.filter((i) => i.provider === 'manual')))
-        .catch((e) => setError(e.message));
+      // Toute la bibliotheque vit sur le compte : hors connexion, il n'y a
+      // simplement rien a afficher.
+      setItems([]);
       return;
     }
-    Promise.all([fetchLibrary(session), getAllItems()])
-      .then(([remote, local]) => {
-        const manual = local.filter((i) => i.provider === 'manual');
-        setItems([...remote, ...manual]);
+    fetchLibrary(session)
+      .then((remote) => {
+        setItems(remote);
         setError(null);
       })
       .catch((e) => setError(e.message));

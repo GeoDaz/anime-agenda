@@ -7,13 +7,10 @@ import { SubtypeTag } from '@/components/SubtypeTag';
 import { SearchPanel } from '@/components/SearchPanel';
 import { CoverLightbox } from '@/components/CoverLightbox';
 import { deleteItem, patchItem, setOverrides, setProgress } from '@/lib/db';
-import { addManual } from '@/lib/library';
 import { TRACKED_PLATFORMS } from '@/lib/platforms';
 import { resolveItem } from '@/lib/providers';
 import type { PlatformId, ResolvedItem, TrackedItem, WatchStatus } from '@/lib/types';
 import { notifyStoreChanged, useItems } from '@/lib/useStore';
-
-const WEEKDAYS = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
 
 const STATUS_LABEL: Record<WatchStatus, string> = {
   watching: 'En cours',
@@ -59,8 +56,8 @@ export default function LibraryPage() {
   const { items, loading, error, reload } = useItems();
   const [expanded, setExpanded] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | WatchStatus>('all');
-  /** Panneau d'ajout : ferme, recherche par provider, ou saisie manuelle. */
-  const [addMode, setAddMode] = useState<'closed' | 'search' | 'manual'>('closed');
+  /** Panneau d'ajout : ferme, ou ouvert sur la recherche BetaSeries. */
+  const [addMode, setAddMode] = useState<'closed' | 'search'>('closed');
   /** Jaquette affichee en grand, `null` quand la visionneuse est fermee. */
   const [zoomed, setZoomed] = useState<{ src: string; title: string } | null>(null);
 
@@ -124,38 +121,7 @@ export default function LibraryPage() {
           className="mx-4 mb-4 rounded-xl border p-3"
           style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
         >
-          <div className="mb-3 flex gap-1.5">
-            {(
-              [
-                ['search', 'Chercher'],
-                ['manual', 'À la main'],
-              ] as ['search' | 'manual', string][]
-            ).map(([value, label]) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setAddMode(value)}
-                aria-pressed={addMode === value}
-                className="tap flex-1 rounded-lg border py-1.5 text-xs font-semibold"
-                style={{
-                  borderColor: addMode === value ? 'var(--accent)' : 'var(--border)',
-                  color: addMode === value ? 'var(--accent)' : 'var(--text-muted)',
-                  background:
-                    addMode === value
-                      ? 'color-mix(in srgb, var(--accent) 14%, transparent)'
-                      : 'transparent',
-                }}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-
-          {addMode === 'search' ? (
-            <SearchPanel />
-          ) : (
-            <ManualForm onDone={() => setAddMode('closed')} />
-          )}
+          <SearchPanel />
         </div>
       )}
 
@@ -382,7 +348,6 @@ function TrashIcon() {
 
 /** Panneau d'edition : c'est ici que les overrides locaux se posent. */
 function ItemDetails({ item }: { item: ReturnType<typeof resolveItem> }) {
-  const weekday = item.overrides?.weekday ?? null;
   const total = item.overrides?.totalEpisodes ?? item.totalEpisodes ?? null;
 
   const save = async (patch: Parameters<typeof setOverrides>[1]) => {
@@ -434,38 +399,6 @@ function ItemDetails({ item }: { item: ReturnType<typeof resolveItem> }) {
               onToggle={() => void togglePlatform(id)}
             />
           ))}
-        </div>
-      </Field>
-
-      <Field
-        label="Jour de parution forcé"
-        hint="Utile si aucune API ne couvre cette série. Laisse vide pour utiliser les dates automatiques."
-      >
-        <div className="flex flex-wrap items-center gap-1.5">
-          {WEEKDAYS.map((label, index) => (
-            <button
-              key={label}
-              type="button"
-              onClick={() => void save({ weekday: weekday === index ? null : index })}
-              className="tap w-11 rounded-md border py-1 text-[11px] font-semibold"
-              style={{
-                borderColor: weekday === index ? 'var(--accent)' : 'var(--border)',
-                color: weekday === index ? 'var(--accent)' : 'var(--text-muted)',
-              }}
-            >
-              {label}
-            </button>
-          ))}
-          {weekday !== null && (
-            <input
-              type="time"
-              defaultValue={item.overrides?.time ?? '09:00'}
-              onBlur={(e) => void save({ time: e.target.value })}
-              aria-label="Heure de parution"
-              className="rounded-md border px-2 py-1 text-[11px]"
-              style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
-            />
-          )}
         </div>
       </Field>
 
@@ -554,107 +487,4 @@ function Field({
 // --------------------------------------------------------------------------
 
 /** Creation d'une fiche que BetaSeries ne reference pas. */
-function ManualForm({ onDone }: { onDone: () => void }) {
-  const [title, setTitle] = useState('');
-  const [kind, setKind] = useState<'anime' | 'series'>('anime');
-  const [weekday, setWeekday] = useState<number | null>(null);
-  const [time, setTime] = useState('09:00');
-  const [platforms, setPlatforms] = useState<PlatformId[]>([]);
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!title.trim()) return;
-    await addManual({ title: title.trim(), kind, weekday, time, platforms });
-    notifyStoreChanged();
-    onDone();
-  };
-
-  return (
-    <form onSubmit={submit} className="space-y-3">
-      <input
-        type="text"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        placeholder="Titre de la série"
-        required
-        className="w-full rounded-md border px-2.5 py-2 text-sm"
-        style={{ background: 'var(--bg)', borderColor: 'var(--border)' }}
-      />
-
-      <div className="flex gap-1.5">
-        {(
-          [
-            ['anime', 'Anime'],
-            ['series', 'Série'],
-          ] as const
-        ).map(([value, label]) => (
-          <button
-            key={value}
-            type="button"
-            onClick={() => setKind(value)}
-            className="tap rounded-md border px-3 py-1 text-xs font-semibold"
-            style={{
-              borderColor: kind === value ? 'var(--accent)' : 'var(--border)',
-              color: kind === value ? 'var(--accent)' : 'var(--text-muted)',
-            }}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      <div className="flex flex-wrap items-center gap-1.5">
-        {WEEKDAYS.map((label, index) => (
-          <button
-            key={label}
-            type="button"
-            onClick={() => setWeekday(weekday === index ? null : index)}
-            className="tap w-11 rounded-md border py-1 text-[11px] font-semibold"
-            style={{
-              borderColor: weekday === index ? 'var(--accent)' : 'var(--border)',
-              color: weekday === index ? 'var(--accent)' : 'var(--text-muted)',
-            }}
-          >
-            {label}
-          </button>
-        ))}
-        <input
-          type="time"
-          value={time}
-          onChange={(e) => setTime(e.target.value)}
-          aria-label="Heure de parution"
-          className="rounded-md border px-2 py-1 text-[11px]"
-          style={{ background: 'var(--bg)', borderColor: 'var(--border)' }}
-        />
-      </div>
-
-      <div className="flex flex-wrap gap-1.5">
-        {TRACKED_PLATFORMS.map((id) => (
-          <PlatformChip
-            key={id}
-            id={id}
-            selected={platforms.includes(id)}
-            onToggle={() =>
-              setPlatforms((prev) =>
-                prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]
-              )
-            }
-          />
-        ))}
-      </div>
-
-      <button
-        type="submit"
-        className="tap w-full rounded-lg py-2 text-sm font-semibold text-white"
-        style={{ background: 'var(--accent)' }}
-      >
-        Créer la fiche
-      </button>
-      <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
-        Sans jour de parution, la série apparaîtra dans Ma liste mais pas dans l’agenda.
-      </p>
-    </form>
-  );
-}
-
 export type { TrackedItem };

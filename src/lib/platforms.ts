@@ -58,7 +58,7 @@ export const TRACKED_PLATFORMS: PlatformId[] = [
 ];
 
 /**
- * Normalise un nom de plateforme arbitraire (AniList `site`, TMDB `provider_name`)
+ * Normalise un nom de plateforme arbitraire (BetaSeries `platforms.svods[].name`)
  * vers notre identifiant interne. Tout ce qui n'est pas reconnu tombe en `other`,
  * volontairement : mieux vaut afficher "Autre" que perdre l'info.
  */

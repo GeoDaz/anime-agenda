@@ -136,6 +136,10 @@ export async function bulkPut(items: TrackedItem[]): Promise<void> {
 // --------------------------------------------------------------------------
 
 export const DEFAULT_SETTINGS: AppSettings = {
+  betaseriesApiKey: null,
+  betaseriesToken: null,
+  betaseriesLogin: null,
+  betaseriesMemberId: null,
   tmdbApiKey: null,
   platformFilter: [],
   hideWatched: false,
@@ -209,10 +213,19 @@ export interface Backup {
 }
 
 export async function exportBackup(): Promise<Backup> {
+  const settings = await getSettings();
   return {
     version: 1,
     exportedAt: new Date().toISOString(),
-    settings: await getSettings(),
+    // Les secrets ne partent PAS dans un fichier telechargeable : une sauvegarde
+    // se partage ou se depose n'importe ou, et un jeton de session vaut un acces
+    // complet au compte. Ils se resaisissent a la reconnexion.
+    settings: {
+      ...settings,
+      betaseriesApiKey: null,
+      betaseriesToken: null,
+      tmdbApiKey: null,
+    },
     items: await getAllItems(),
   };
 }
@@ -296,7 +309,7 @@ export async function buildLocalCatalog(): Promise<LocalCatalogEntry[]> {
       if (!raw || typeof raw !== 'object') continue;
       const o = raw as Record<string, unknown>;
 
-      // Forme SearchResult (AniList, TVmaze, TMDB).
+      // Forme SearchResult.
       if (typeof o.title === 'string' && typeof o.provider === 'string') {
         add(
           typeof o.kind === 'string' ? o.kind : 'inconnu',

@@ -439,7 +439,7 @@ function ItemDetails({ item }: { item: ReturnType<typeof resolveItem> }) {
       <div className="pt-1">
         <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
           Source : {item.provider}
-          {item.links?.adnShowId ? ' + ADN' : ''}
+          {item.links?.betaseriesId ? ' #' + item.links.betaseriesId : ''}
         </span>
       </div>
     </div>
@@ -472,7 +472,7 @@ function Field({
 
 // --------------------------------------------------------------------------
 
-/** Creation d'une fiche que ni AniList ni TMDB ne couvrent correctement. */
+/** Creation d'une fiche que BetaSeries ne reference pas. */
 function ManualForm({ onDone }: { onDone: () => void }) {
   const [title, setTitle] = useState('');
   const [kind, setKind] = useState<'anime' | 'series'>('anime');

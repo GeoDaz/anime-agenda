@@ -6,12 +6,15 @@ import { PLATFORMS } from '@/lib/platforms';
 import type { AiringEntry } from '@/lib/types';
 import { formatTime } from '@/lib/week';
 
-/** Libelle de provenance de la date, pour lever le doute sur un horaire. */
+/**
+ * Provenance de la date.
+ *
+ * BetaSeries ne fournit qu'une DATE, sans heure : l'agenda affiche donc des
+ * jours. Le libelle reste utile pour distinguer une vraie date de diffusion
+ * d'une estimation saisie a la main.
+ */
 const SOURCE_LABEL: Record<AiringEntry['source'], string> = {
-  adn: 'sortie FR (ADN)',
-  tmdb: 'diffusion FR',
-  tvmaze: 'diffusion origine',
-  anilist: 'diffusion JP',
+  betaseries: 'BetaSeries',
   manual: 'estimation',
 };
 

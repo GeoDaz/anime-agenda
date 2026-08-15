@@ -9,12 +9,13 @@ import { toggleEpisode } from '@/lib/db';
 import { TRACKED_PLATFORMS } from '@/lib/platforms';
 import { buildAgenda } from '@/lib/providers';
 import type { AiringEntry, PlatformId } from '@/lib/types';
-import { notifyStoreChanged, useItems, useSettings } from '@/lib/useStore';
+import { notifyStoreChanged, useItems, useSession, useSettings } from '@/lib/useStore';
 import { buildWeek, groupByDay } from '@/lib/week';
 
 export default function AgendaPage() {
   const { items, loading: itemsLoading } = useItems();
   const { settings, ready: settingsReady, update } = useSettings();
+  const { session, ready: sessionReady, connected } = useSession();
 
   const [offset, setOffset] = useState(0);
   const [entries, setEntries] = useState<AiringEntry[]>([]);
@@ -31,10 +32,12 @@ export default function AgendaPage() {
   );
 
   const load = useCallback(async () => {
-    if (!items || !settingsReady) return;
+    if (!sessionReady || !settingsReady) return;
     setFetching(true);
     try {
-      const result = await buildAgenda(items, { from: week.from, to: week.to }, settings);
+      // Le planning vient du compte BetaSeries : la liste locale n'entre plus
+      // dans le calcul, c'est le compte qui fait autorite.
+      const result = await buildAgenda(session, { from: week.from, to: week.to }, settings);
       setEntries(result.entries);
       setWarnings(result.warnings);
     } catch (e) {
@@ -43,7 +46,7 @@ export default function AgendaPage() {
     } finally {
       setFetching(false);
     }
-  }, [items, settingsReady, settings, week.from, week.to]);
+  }, [session, sessionReady, settingsReady, settings, week.from, week.to]);
 
   useEffect(() => {
     void load();

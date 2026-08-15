@@ -37,7 +37,13 @@ export default function AgendaPage() {
     try {
       // Le planning vient du compte BetaSeries : la liste locale n'entre plus
       // dans le calcul, c'est le compte qui fait autorite.
-      const result = await buildAgenda(session, { from: week.from, to: week.to }, settings);
+      const result = await buildAgenda(
+        session,
+        { from: week.from, to: week.to },
+        settings,
+        // Le planning ne porte ni jaquette ni plateforme : la bibliotheque les fournit.
+        items ?? []
+      );
       setEntries(result.entries);
       setWarnings(result.warnings);
     } catch (e) {
@@ -46,7 +52,7 @@ export default function AgendaPage() {
     } finally {
       setFetching(false);
     }
-  }, [session, sessionReady, settingsReady, settings, week.from, week.to]);
+  }, [session, sessionReady, settingsReady, settings, week.from, week.to, items]);
 
   useEffect(() => {
     void load();

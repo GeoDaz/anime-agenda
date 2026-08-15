@@ -6,6 +6,7 @@ import {
   platformsOfShow,
   showToSearchResult,
   toTrackedItem,
+  withLibraryDetails,
   type BsMovie,
 } from '../betaseries/adapter';
 import { credentialsOf, type BetaSeriesSession } from '../betaseries/session';
@@ -77,27 +78,16 @@ export async function searchAll(
 // --------------------------------------------------------------------------
 
 /**
- * Series suivies, avec le retard restant.
- * `/episodes/list` renvoie directement les series du membre et leurs episodes
- * non vus : c'est la vue la plus utile pour un agenda.
+ * Toutes les series du compte.
+ *
+ * L implementation precedente utilisait `/episodes/list`, qui ne renvoie que les
+ * series AYANT des episodes non vus : tout ce qui etait termine ou a jour
+ * disparaissait de la liste.
  */
 export async function fetchLibrary(session: BetaSeriesSession): Promise<TrackedItem[]> {
   const creds = credentialsOf(session);
   if (!creds?.token) return [];
 
-  /*
-   * Pagination jusqu'a epuisement.
-   *
-   * Deux raisons de ne PAS se contenter d'un seul appel :
-   *  - `/shows/member` plafonne a 200 series par page (defaut 100), donc une
-   *    bibliotheque de plusieurs centaines de titres arrive tronquee ;
-   *  - la reponse ne declare aucun total, donc la seule facon de savoir qu'on a
-   *    fini est de recevoir un lot plus petit que la limite demandee.
-   *
-   * L'ancienne implementation utilisait `/episodes/list`, qui ne renvoie que les
-   * series AYANT des episodes non vus : tout ce qui etait termine ou a jour
-   * disparaissait de la liste.
-   */
   /*
    * Un seul appel, sans pagination.
    *
@@ -211,7 +201,9 @@ function applyFilters(entries: AiringEntry[], settings: AppSettings): AiringEntr
 export async function buildAgenda(
   session: BetaSeriesSession,
   range: { from: number; to: number },
-  settings: AppSettings
+  settings: AppSettings,
+  /** Bibliotheque deja chargee : seule source de jaquettes et de plateformes. */
+  library: TrackedItem[] = []
 ): Promise<AgendaResult> {
   const creds = credentialsOf(session);
   if (!creds?.token) {
@@ -227,7 +219,10 @@ export async function buildAgenda(
 
   const cached = await cacheGet<AiringEntry[]>(key);
   if (cached) {
-    const inRange = cached.filter((e) => e.airsAt >= range.from && e.airsAt <= range.to);
+    const inRange = withLibraryDetails(
+      cached.filter((e) => e.airsAt >= range.from && e.airsAt <= range.to),
+      library
+    );
     return { entries: applyFilters(inRange, settings), warnings: [], usedCache: true };
   }
 
@@ -248,7 +243,10 @@ export async function buildAgenda(
   if (warnings.length && all.length === 0) {
     const stale = await cacheGetStale<AiringEntry[]>(key);
     if (stale?.length) {
-      const inRange = stale.filter((e) => e.airsAt >= range.from && e.airsAt <= range.to);
+      const inRange = withLibraryDetails(
+        stale.filter((e) => e.airsAt >= range.from && e.airsAt <= range.to),
+        library
+      );
       return {
         entries: applyFilters(inRange, settings),
         warnings: [...warnings, 'Affichage des dernières données enregistrées.'],
@@ -259,7 +257,10 @@ export async function buildAgenda(
     await cacheSet(key, all, AGENDA_TTL);
   }
 
-  const inRange = all.filter((e) => e.airsAt >= range.from && e.airsAt <= range.to);
+  const inRange = withLibraryDetails(
+    all.filter((e) => e.airsAt >= range.from && e.airsAt <= range.to),
+    library
+  );
   return { entries: applyFilters(inRange, settings), warnings, usedCache: false };
 }
 

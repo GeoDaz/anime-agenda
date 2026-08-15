@@ -200,6 +200,10 @@ export function episodeToEntry(ep: BsEpisode): AiringEntry | null {
     kind: 'series',
     subtype: null,
     title: ep.show?.title ?? ep.title,
+    // Le planning ne transporte NI jaquette NI plateforme : l'objet `show`
+    // imbrique se limite a { id, thetvdb_id, title, slug, status, description }.
+    // Ces deux champs sont completes depuis la bibliotheque, qui les possede,
+    // via `withLibraryDetails` — sans requete supplementaire.
     coverUrl: null,
     episode: ep.episode,
     episodeTitle: ep.title || null,
@@ -217,4 +221,33 @@ export function episodesToEntries(episodes: BsEpisode[]): AiringEntry[] {
     .map(episodeToEntry)
     .filter((e): e is AiringEntry => e !== null)
     .sort((a, b) => a.airsAt - b.airsAt);
+}
+
+/**
+ * Complete les entrees d'agenda avec la jaquette et les plateformes.
+ *
+ * Le planning BetaSeries ne les fournit pas, alors que la bibliotheque les
+ * porte deja : on rapproche donc par identifiant de serie. C'est fait a
+ * l'affichage plutot qu'avant la mise en cache, pour qu'une jaquette mise a jour
+ * ou un override local soit pris en compte immediatement.
+ *
+ * Sans ce complement, l'agenda affichait un carre gris pour chaque episode et le
+ * filtre par plateforme ne pouvait rien filtrer.
+ */
+export function withLibraryDetails(
+  entries: AiringEntry[],
+  library: { id: string; coverUrl?: string | null; platforms?: PlatformId[]; overrides?: { coverUrl?: string } }[]
+): AiringEntry[] {
+  if (!library.length) return entries;
+
+  const byId = new Map(library.map((i) => [i.id, i]));
+  return entries.map((entry) => {
+    const item = byId.get(entry.itemId);
+    if (!item) return entry;
+    return {
+      ...entry,
+      coverUrl: entry.coverUrl ?? item.overrides?.coverUrl ?? item.coverUrl ?? null,
+      platforms: entry.platforms.length ? entry.platforms : (item.platforms ?? []),
+    };
+  });
 }

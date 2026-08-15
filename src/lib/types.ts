@@ -27,6 +27,9 @@ export type PlatformId =
   | 'netflix'
   | 'disneyplus'
   | 'primevideo'
+  | 'hbomax'
+  | 'paramount'
+  | 'appletv'
   | 'other';
 
 /**

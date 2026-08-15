@@ -201,6 +201,28 @@ export async function clearCache(): Promise<void> {
   await db.clear('cache');
 }
 
+/**
+ * Purge ciblee.
+ *
+ * Le planning est mis en cache par mois ET par empreinte de bibliotheque : apres
+ * un ajout, on ne connait pas les cles a invalider, seulement leur prefixe. Tout
+ * vider serait excessif — la liste des series, bien plus couteuse a recharger,
+ * n'a aucune raison de disparaitre.
+ */
+export async function clearCacheByPrefix(prefix: string): Promise<void> {
+  try {
+    const db = await getDB();
+    const keys = await db.getAllKeys('cache');
+    const doomed = keys.filter((k) => typeof k === 'string' && k.startsWith(prefix));
+    if (!doomed.length) return;
+    const tx = db.transaction('cache', 'readwrite');
+    await Promise.all(doomed.map((k) => tx.store.delete(k)));
+    await tx.done;
+  } catch {
+    // Le cache est un bonus : un echec de purge ne doit pas casser l'ecriture.
+  }
+}
+
 // --------------------------------------------------------------------------
 // Export / import (la sauvegarde, puisque tout est local)
 // --------------------------------------------------------------------------

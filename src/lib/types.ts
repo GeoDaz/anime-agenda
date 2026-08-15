@@ -29,7 +29,13 @@ export type PlatformId =
   | 'primevideo'
   | 'other';
 
-export type WatchStatus = 'watching' | 'planned' | 'paused' | 'done' | 'dropped';
+/**
+ * Etat de suivi.
+ *
+ * « En pause » a ete retire : BetaSeries ne connait pas cet etat, donc rien
+ * n'aurait pu l'alimenter ni le conserver d'une session a l'autre.
+ */
+export type WatchStatus = 'watching' | 'planned' | 'done' | 'dropped';
 
 /**
  * Champs que l'utilisateur peut forcer en local. Tout ce qui est defini ici
@@ -78,6 +84,20 @@ export interface TrackedItem {
   watchedEpisodes?: number[];
 
   overrides?: LocalOverrides;
+
+  /** Episodes restant a voir, tel que compte par BetaSeries. */
+  remaining?: number;
+  /**
+   * Date du dernier episode diffuse (epoch ms). Renseignee seulement si une
+   * vraie date est disponible ; sinon `null`, et le tri retombe sur `sortIndex`.
+   */
+  lastAiredAt?: number | null;
+  /**
+   * Rang renvoye par l'API, tri « diffusion » compris.
+   * Conserve parce que le serveur sait trier sur des champs que l'app ne recoit
+   * pas ; le refaire en local donnerait un ordre different et faux.
+   */
+  sortIndex?: number;
 
   addedAt: number;
   updatedAt: number;

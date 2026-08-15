@@ -4,7 +4,7 @@ import { useRef, useState } from 'react';
 import { PageHeader } from '@/components/AppShell';
 import { buildLocalCatalog, clearCache, exportBackup, importBackup, type Backup } from '@/lib/db';
 import { Spinner } from '@/components/Loaders';
-import { login, logout } from '@/lib/betaseries/session';
+import { BetaSeriesLogin } from '@/components/BetaSeriesLogin';
 import { parseImport, type ImportCandidate } from '@/lib/importers';
 import { notifyStoreChanged, useItems, useSession, useSettings } from '@/lib/useStore';
 import { ImportMatcher } from '@/components/ImportMatcher';
@@ -18,14 +18,11 @@ export default function SettingsPage() {
   const { items } = useItems();
   const { session, connected } = useSession();
 
-  const [keyDraft, setKeyDraft] = useState(settings.betaseriesApiKey ?? '');
   const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [candidates, setCandidates] = useState<ImportCandidate[] | null>(null);
   /** Contenu de la zone de texte, desormais soumis explicitement. */
   const [listText, setListText] = useState('');
-  const [loginDraft, setLoginDraft] = useState('');
-  const [passwordDraft, setPasswordDraft] = useState('');
   const hasListText = listText.trim().length > 0;
   // Plateforme d'origine de la liste : leve l'ambiguite anime / live-action
   // (un "One Piece" venant de Netflix est la serie de 2023, pas l'anime).
@@ -135,90 +132,7 @@ export default function SettingsPage() {
           title="Compte BetaSeries"
           hint="BetaSeries est desormais la source unique : ta liste, ta progression et ton planning vivent sur ton compte, donc tu retrouves la meme chose ici et sur leur site. La cle et le jeton restent sur cet appareil (IndexedDB) et ne partent jamais dans le bundle."
         >
-          {connected ? (
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm font-medium">
-                Connecte{session.login ? ` : ${session.login}` : ''}
-              </span>
-              <button
-                type="button"
-                onClick={async () => {
-                  await logout(session);
-                  notifyStoreChanged();
-                  flash('Deconnecte. Le jeton a ete revoque.');
-                }}
-                className="tap rounded-lg px-3 py-2 text-xs font-semibold"
-                style={{ background: 'var(--surface-2)' }}
-              >
-                Se deconnecter
-              </button>
-            </div>
-          ) : (
-            <form
-              className="space-y-2"
-              onSubmit={async (e) => {
-                e.preventDefault();
-                setBusy('login');
-                try {
-                  await login(keyDraft.trim(), loginDraft.trim(), passwordDraft);
-                  notifyStoreChanged();
-                  setPasswordDraft('');
-                  flash('Connecte a BetaSeries.');
-                } catch (err) {
-                  flash(err instanceof Error ? err.message : 'Connexion impossible');
-                } finally {
-                  setBusy(null);
-                }
-              }}
-            >
-              <input
-                type="password"
-                value={keyDraft}
-                onChange={(e) => setKeyDraft(e.target.value)}
-                placeholder="Cle d'API BetaSeries"
-                autoComplete="off"
-                required
-                className="w-full rounded-lg border px-3 py-2 text-sm"
-                style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
-              />
-              <input
-                type="text"
-                value={loginDraft}
-                onChange={(e) => setLoginDraft(e.target.value)}
-                placeholder="Identifiant ou e-mail"
-                autoComplete="username"
-                required
-                className="w-full rounded-lg border px-3 py-2 text-sm"
-                style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
-              />
-              <input
-                type="password"
-                value={passwordDraft}
-                onChange={(e) => setPasswordDraft(e.target.value)}
-                placeholder="Mot de passe"
-                autoComplete="current-password"
-                required
-                className="w-full rounded-lg border px-3 py-2 text-sm"
-                style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
-              />
-              <button
-                type="submit"
-                disabled={busy === 'login'}
-                className="tap flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
-                style={{ background: 'var(--accent)' }}
-              >
-                {busy === 'login' && <Spinner size={13} />}
-                Se connecter
-              </button>
-              <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
-                Le mot de passe est hache en MD5 dans le navigateur, envoye a BetaSeries, puis
-                oublie : seul le jeton retourne est conserve.{' '}
-                <a href="https://www.betaseries.com/api" target="_blank" rel="noreferrer" className="underline">
-                  Obtenir une cle
-                </a>
-              </p>
-            </form>
-          )}
+          <BetaSeriesLogin />
         </Section>
 
         {/* ---------------- Import ---------------- */}

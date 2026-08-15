@@ -10,7 +10,7 @@ import { deleteItem, patchItem, setOverrides, setProgress } from '@/lib/db';
 import { addManual } from '@/lib/library';
 import { TRACKED_PLATFORMS } from '@/lib/platforms';
 import { resolveItem } from '@/lib/providers';
-import type { PlatformId, TrackedItem, WatchStatus } from '@/lib/types';
+import type { PlatformId, ResolvedItem, TrackedItem, WatchStatus } from '@/lib/types';
 import { notifyStoreChanged, useItems } from '@/lib/useStore';
 
 const WEEKDAYS = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
@@ -18,10 +18,42 @@ const WEEKDAYS = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
 const STATUS_LABEL: Record<WatchStatus, string> = {
   watching: 'En cours',
   planned: 'À voir',
-  paused: 'En pause',
   done: 'Terminé',
   dropped: 'Abandonné',
 };
+
+/** Filtres proposes, dans l'ordre d'affichage. */
+const FILTERS: ('all' | WatchStatus)[] = ['all', 'watching', 'planned', 'done'];
+
+/**
+ * Tri par diffusion decroissante : ce qui vient de sortir en premier.
+ * Les series sans date connue passent en fin de liste, classees par titre, plutot
+ * que de polluer le haut avec des valeurs nulles.
+ */
+function byAiringDesc(a: ResolvedItem, b: ResolvedItem): number {
+  const da = a.lastAiredAt ?? null;
+  const db = b.lastAiredAt ?? null;
+  if (da !== null && db !== null) return db - da;
+  if (da !== null) return -1;
+  if (db !== null) return 1;
+
+  // Sans date exploitable, on suit l'ordre renvoye par l'API, qui a trie sur des
+  // champs dont l'app ne dispose pas. Rejouer un tri local produirait un
+  // classement different et faux.
+  const ia = a.sortIndex ?? Number.MAX_SAFE_INTEGER;
+  const ib = b.sortIndex ?? Number.MAX_SAFE_INTEGER;
+  if (ia !== ib) return ia - ib;
+
+  return a.displayTitle.localeCompare(b.displayTitle, 'fr');
+}
+
+/** Normalisation legere pour la recherche locale : accents et casse ignores. */
+function searchable(s: string): string {
+  return s
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase();
+}
 
 export default function LibraryPage() {
   const { items, loading, error, reload } = useItems();
@@ -32,17 +64,45 @@ export default function LibraryPage() {
   /** Jaquette affichee en grand, `null` quand la visionneuse est fermee. */
   const [zoomed, setZoomed] = useState<{ src: string; title: string } | null>(null);
 
+  /** Recherche locale : la liste est deja chargee, inutile d'interroger l'API. */
+  const [query, setQuery] = useState('');
+
   const visible = useMemo(() => {
     if (!items) return [];
-    const list = filter === 'all' ? items : items.filter((i) => i.status === filter);
-    return list.map(resolveItem).sort((a, b) => a.displayTitle.localeCompare(b.displayTitle, 'fr'));
-  }, [items, filter]);
+    const byStatus = filter === 'all' ? items : items.filter((i) => i.status === filter);
+    const resolved = byStatus.map(resolveItem);
+
+    const q = searchable(query.trim());
+    const found = q
+      ? resolved.filter(
+          (i) =>
+            searchable(i.displayTitle).includes(q) ||
+            searchable(i.originalTitle ?? '').includes(q)
+        )
+      : resolved;
+
+    return found.sort(byAiringDesc);
+  }, [items, filter, query]);
+
+  /** Compte par etat, pour afficher le volume reel derriere chaque filtre. */
+  const counts = useMemo(() => {
+    const out: Record<string, number> = { all: items?.length ?? 0 };
+    for (const s of FILTERS) {
+      if (s === 'all') continue;
+      out[s] = (items ?? []).filter((i) => i.status === s).length;
+    }
+    return out;
+  }, [items]);
 
   return (
     <>
       <PageHeader
         title="Ma liste"
-        subtitle={items ? `${items.length} série${items.length > 1 ? 's' : ''}` : undefined}
+        subtitle={
+          items
+            ? `${items.length} série${items.length > 1 ? 's' : ''} sur ton compte BetaSeries`
+            : undefined
+        }
         action={
           <button
             type="button"
@@ -99,8 +159,26 @@ export default function LibraryPage() {
         </div>
       )}
 
+      <div className="px-4 pb-3">
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Rechercher dans ma liste…"
+          enterKeyHint="search"
+          autoComplete="off"
+          className="w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2"
+          style={{
+            background: 'var(--surface)',
+            borderColor: 'var(--border)',
+            // @ts-expect-error -- propriete CSS personnalisee acceptee par React
+            '--tw-ring-color': 'var(--accent)',
+          }}
+        />
+      </div>
+
       <div className="no-scrollbar flex gap-2 overflow-x-auto px-4 pb-3">
-        {(['all', 'watching', 'planned', 'paused', 'done'] as const).map((value) => (
+        {FILTERS.map((value) => (
           <button
             key={value}
             type="button"
@@ -117,6 +195,9 @@ export default function LibraryPage() {
             }}
           >
             {value === 'all' ? 'Tout' : STATUS_LABEL[value]}
+            {counts[value] > 0 && (
+              <span className="ml-1 opacity-60">{counts[value]}</span>
+            )}
           </button>
         ))}
       </div>

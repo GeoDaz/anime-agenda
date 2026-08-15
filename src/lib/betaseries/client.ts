@@ -240,6 +240,88 @@ export function unmarkWatched(creds: BetaSeriesCredentials, id: number) {
   return request<BsEnvelope>('DELETE', '/episodes/watched', creds, { query: { id } });
 }
 
+/**
+ * Toutes les series du membre — l'endpoint qu'il fallait utiliser.
+ *
+ * `/episodes/list` ne renvoie QUE les series ayant des episodes non vus : sur un
+ * compte de plusieurs centaines de series, la grande majorite manquait a l'appel.
+ * Celui-ci liste la bibliotheque complete, avec pagination et filtre par etat.
+ */
+/**
+ * Etats de suivi acceptes par `/shows/member`.
+ * Repris des descriptions de la spec — attention, AUCUN parametre de cette API
+ * ne declare d'`enum`, donc ces valeurs ne sont pas contraintes cote schema.
+ */
+/**
+ * Etats acceptes par `/shows/member`, VERIFIES contre l'API.
+ *
+ * La spec en documente neuf ; l'API n'en accepte que quatre. Les cinq autres
+ * (`completed`, `not_started`, `active_and_completed`…) renvoient
+ * « 3004 Le paramètre "status" a une valeur incorrecte ». La casse compte, et
+ * les valeurs multiples separees par une virgule sont refusees.
+ */
+export type MemberShowStatus = 'current' | 'active' | 'archived' | 'stopped';
+
+/**
+ * Tris acceptes, VERIFIES contre l'API.
+ * La spec en documente dix ; seuls ces quatre passent. `next_date`, `last_added`
+ * et `custom` sont rejetes avec le meme code 3004.
+ */
+export type MemberShowOrder = 'alphabetical' | 'progression' | 'last_seen' | 'rating';
+
+/**
+ * Recupere toute la liste en un seul appel.
+ *
+ * Verifie : `limit=200` est REFUSE (« doit être inférieur à 200 »), le maximum
+ * reel est 199 — mais `limit=-1` renvoie la liste complete d'un coup, et donne
+ * exactement le meme contenu et le meme ordre qu'un parcours pagine. Cela evite
+ * toute pagination et tout risque de lot manquant.
+ */
+export const MEMBER_SHOWS_ALL = -1;
+
+export function memberShows(
+  creds: BetaSeriesCredentials,
+  params: {
+    limit?: number;
+    offset?: number;
+    status?: MemberShowStatus;
+    order?: MemberShowOrder;
+    /** Membre cible ; par defaut le membre connecte. */
+    id?: number;
+    /** `user`, `platforms`, `seasons`… uniquement si `summary` est vrai. */
+    includes?: string;
+    summary?: boolean;
+  } = {}
+) {
+  // `total` est le nombre d'elements du jeu FILTRE ; `totalMissingShows` compte
+  // ceux qu'un filtre `status` a ecartes. Sans filtre, `total` est le nombre
+  // reel de series du membre.
+  return request<{ shows?: unknown[]; total?: number; totalMissingShows?: number }>(
+    'GET',
+    '/shows/member',
+    creds,
+    { query: params }
+  );
+}
+
+/**
+ * Tous les films du membre.
+ * Deux pieges : la pagination se fait par `start` et non `offset`, et `state`
+ * vaut 0 = a voir, 1 = vu, 2 = ne veut pas voir.
+ */
+export function memberMovies(
+  creds: BetaSeriesCredentials,
+  params: {
+    limit?: number;
+    start?: number;
+    state?: 0 | 1 | 2;
+    order?: 'alphabetical' | 'popularity' | 'added' | 'release' | 'svod';
+    id?: number;
+  } = {}
+) {
+  return request<{ movies?: unknown[] }>('GET', '/movies/member', creds, { query: params });
+}
+
 /** Plateformes SVOD/VOD disponibles dans un pays. Remplace notre table locale. */
 export function platformsList(creds: BetaSeriesCredentials, country = 'FR') {
   return request<BsPlatformsResponse>('GET', '/platforms/list', creds, { query: { country } });

@@ -5,6 +5,7 @@ import {
   movieToSearchResult,
   platformsOfShow,
   showToSearchResult,
+  toTrackedItem,
   type BsMovie,
 } from '../betaseries/adapter';
 import { credentialsOf, type BetaSeriesSession } from '../betaseries/session';
@@ -84,30 +85,42 @@ export async function fetchLibrary(session: BetaSeriesSession): Promise<TrackedI
   const creds = credentialsOf(session);
   if (!creds?.token) return [];
 
-  const res = await bs.episodesToWatch(creds, { limit: 200 });
-  const now = Date.now();
+  /*
+   * Pagination jusqu'a epuisement.
+   *
+   * Deux raisons de ne PAS se contenter d'un seul appel :
+   *  - `/shows/member` plafonne a 200 series par page (defaut 100), donc une
+   *    bibliotheque de plusieurs centaines de titres arrive tronquee ;
+   *  - la reponse ne declare aucun total, donc la seule facon de savoir qu'on a
+   *    fini est de recevoir un lot plus petit que la limite demandee.
+   *
+   * L'ancienne implementation utilisait `/episodes/list`, qui ne renvoie que les
+   * series AYANT des episodes non vus : tout ce qui etait termine ou a jour
+   * disparaissait de la liste.
+   */
+  /*
+   * Un seul appel, sans pagination.
+   *
+   * `limit=-1` renvoie la liste complete, verifie identique en contenu et en
+   * ordre a un parcours pagine. `limit=200` est d'ailleurs refuse par l'API
+   * (« doit être inférieur à 200 »), donc paginer aurait impose des lots de 199.
+   *
+   * On ne filtre PAS par `status` cote serveur : seules quatre valeurs existent
+   * (`current`, `active`, `archived`, `stopped`) et elles ne recouvrent pas les
+   * etats de l'app. Le filtrage se fait donc en local, sur la liste complete.
+   */
+  const res = await bs.memberShows(creds, {
+    limit: bs.MEMBER_SHOWS_ALL,
+    // Seules 252 series sur 525 portent une date exploitable dans l'echantillon
+    // mesure. Pour les autres, l'ordre du serveur sert de repli : « vu
+    // recemment » est plus pertinent qu'un classement alphabetique.
+    order: 'last_seen',
+  });
+  const raw = res.shows ?? [];
 
-  return (res.shows ?? []).map((s) => ({
-    id: `betaseries:${s.id}`,
-    kind: 'series' as const,
-    subtype: null,
-    provider: 'betaseries' as const,
-    externalId: String(s.id),
-    title: s.title,
-    originalTitle: null,
-    coverUrl: null,
-    platforms: [] as PlatformId[],
-    totalEpisodes: null,
-    links: { betaseriesId: s.id },
-    status: 'watching' as const,
-    // La progression fait autorite cote BetaSeries : `remaining` suffit a
-    // afficher le retard, sans compter les episodes localement.
-    progress: 0,
-    watchedEpisodes: [],
-    addedAt: now,
-    updatedAt: now,
-    remaining: s.remaining,
-  })) as TrackedItem[];
+  // `sortIndex` preserve l'ordre du serveur a travers filtres et recherche, qui
+  // ne font que retirer des elements.
+  return raw.map((r, index) => ({ ...toTrackedItem(r), sortIndex: index }));
 }
 
 /** Ajoute une serie ou un film au compte. */

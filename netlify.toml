@@ -1,0 +1,26 @@
+# Déploiement Netlify.
+#
+# Contrairement à digimon-lines, qui est une app Next.js rendue côté serveur et
+# s'appuie sur le runtime Next de Netlify, ce projet est un EXPORT STATIQUE
+# (`output: 'export'` dans next.config.mjs). Il n'y a donc ni fonction, ni
+# runtime : Netlify n'a qu'à servir le dossier `out/`.
+#
+# C'est ce qui rend le déploiement gratuit et sans configuration serveur — mais
+# il faut le dire explicitement, sinon Netlify détecte « Next.js » et installe
+# son plugin de runtime, qui échoue sur un export statique.
+
+[build]
+  command = "npm run build"
+  publish = "out"
+
+[build.environment]
+  # Aligné sur la version locale : le projet utilise `node --env-file`, apparu en
+  # Node 20, et l'API `crypto.subtle` du navigateur n'est pas en cause ici.
+  NODE_VERSION = "22"
+
+# L'export statique produit un fichier par route (trailingSlash: true), donc
+# aucune redirection SPA n'est nécessaire. Seul le 404 mérite d'être branché.
+[[redirects]]
+  from = "/*"
+  to = "/404/index.html"
+  status = 404

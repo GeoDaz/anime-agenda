@@ -1,0 +1,28 @@
+# Règles d'en-têtes Netlify (https://docs.netlify.com/routing/headers/)
+#
+# Par défaut Netlify sert tout en `max-age=0, must-revalidate` : chaque visite
+# re-télécharge l'intégralité des bundles. Sur une PWA consultée plusieurs fois
+# par jour depuis un téléphone, c'est du gaspillage pur.
+
+# Bundles Next : le nom de fichier contient un hash du contenu, donc une version
+# donnée ne change JAMAIS. Cache maximal, sans revalidation.
+/_next/static/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Icônes de la PWA : chemins stables, mises à jour très rares.
+/icons/*
+  Cache-Control: public, max-age=604800, stale-while-revalidate=604800
+
+# Le service worker ne doit SURTOUT PAS être mis en cache longtemps.
+#
+# C'est lui qui contrôle la mise en cache de tout le reste : s'il est figé dans
+# le cache du navigateur, une nouvelle version de l'app ne peut plus s'installer
+# et l'utilisateur reste bloqué sur l'ancienne, sans aucun moyen de s'en rendre
+# compte. Il doit donc être revalidé à chaque chargement.
+/sw.js
+  Cache-Control: public, max-age=0, must-revalidate
+
+# Le manifeste change rarement mais conditionne l'installation sur l'écran
+# d'accueil : une journée suffit.
+/manifest.webmanifest
+  Cache-Control: public, max-age=86400

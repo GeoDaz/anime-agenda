@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useOnline } from '@/lib/useStore';
+import { AccountButton } from './AccountButton';
 
 /**
  * Trois onglets seulement : l'ajout de series vit desormais dans Ma liste, ou il
@@ -25,6 +26,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           Hors ligne — affichage des dernières données enregistrées
         </div>
       )}
+
+      {/* Barre de compte : tout depend de la connexion BetaSeries, elle doit
+          donc etre visible et actionnable depuis n'importe quelle page. */}
+      <div className="pt-safe flex items-center justify-end px-4 pb-1">
+        <AccountButton />
+      </div>
 
       <main className="flex-1 pb-24">{children}</main>
 
@@ -71,7 +78,9 @@ export function PageHeader({
   action?: React.ReactNode;
 }) {
   return (
-    <header className="pt-safe flex items-start justify-between gap-3 px-4 pb-3">
+    // La zone sure iOS est deja absorbee par la barre de compte au-dessus :
+    // la reappliquer ici creerait un double espacement en haut d'ecran.
+    <header className="flex items-start justify-between gap-3 px-4 pb-3 pt-1">
       <div className="min-w-0">
         <h1 className="truncate text-2xl font-bold tracking-tight">{title}</h1>
         {subtitle && (

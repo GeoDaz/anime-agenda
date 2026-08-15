@@ -1,9 +1,9 @@
 /**
  * Hash FNV-1a, 32 bits, en base 36.
  *
- * Sert uniquement a raccourcir des cles de cache : une liste de 40 identifiants
- * fabrique une cle de plusieurs centaines de caracteres, ce qui alourdit
- * inutilement chaque lecture IndexedDB. Aucun usage cryptographique.
+ * Sert uniquement a raccourcir des cles de cache : une bibliotheque de plusieurs
+ * centaines de series fabriquerait sinon une cle de plusieurs milliers de
+ * caracteres, relue a chaque acces IndexedDB. Aucun usage cryptographique.
  */
 export function fingerprint(input: string): string {
   let h = 0x811c9dc5;

@@ -4,7 +4,7 @@
  * Volontairement generique : on ne se connecte a rien. Tout ce qui ressemble a
  * "un titre par ligne" ou "un CSV avec une colonne titre" rentre ici. Ca couvre
  * l'export officiel Netflix ("Vos informations personnelles" -> ViewingActivity.csv),
- * une liste copiee depuis une page watchlist, ou un export MyAnimeList/AniList.
+ * ou une liste copiee depuis une page watchlist.
  *
  * Le rapprochement avec les providers se fait ensuite via la recherche : on
  * propose, l'utilisateur confirme. Aucun ajout silencieux, parce qu'un mauvais

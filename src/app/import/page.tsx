@@ -4,9 +4,9 @@ import { useRef, useState } from 'react';
 import { PageHeader } from '@/components/AppShell';
 import { buildLocalCatalog, clearCache, exportBackup, importBackup, type Backup } from '@/lib/db';
 import { Spinner } from '@/components/Loaders';
+import { BetaSeriesLogin } from '@/components/BetaSeriesLogin';
 import { parseImport, type ImportCandidate } from '@/lib/importers';
-import { resyncAll } from '@/lib/library';
-import { notifyStoreChanged, useItems, useSettings } from '@/lib/useStore';
+import { notifyStoreChanged, useItems, useSession, useSettings } from '@/lib/useStore';
 import { ImportMatcher } from '@/components/ImportMatcher';
 import { ExportGuides } from '@/components/ExportGuides';
 import { PlatformChip } from '@/components/PlatformBadge';
@@ -16,12 +16,11 @@ import type { PlatformId } from '@/lib/types';
 export default function SettingsPage() {
   const { settings, update } = useSettings();
   const { items } = useItems();
+  const { session, connected } = useSession();
 
-  const [keyDraft, setKeyDraft] = useState(settings.tmdbApiKey ?? '');
   const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [candidates, setCandidates] = useState<ImportCandidate[] | null>(null);
-  const [resyncProgress, setResyncProgress] = useState<{ done: number; total: number } | null>(null);
   /** Contenu de la zone de texte, desormais soumis explicitement. */
   const [listText, setListText] = useState('');
   const hasListText = listText.trim().length > 0;
@@ -98,22 +97,6 @@ export default function SettingsPage() {
     }
   };
 
-  const doResync = async () => {
-    setBusy('resync');
-    setResyncProgress({ done: 0, total: items?.length ?? 0 });
-    try {
-      // resyncAll accepte un rappel de progression : autant s'en servir, une
-      // bibliotheque fournie prend plusieurs dizaines de secondes.
-      const updated = await resyncAll(settings.tmdbApiKey, (done, total) =>
-        setResyncProgress({ done, total })
-      );
-      notifyStoreChanged();
-      flash(`${updated} fiche(s) enrichie(s).`);
-    } finally {
-      setBusy(null);
-      setResyncProgress(null);
-    }
-  };
 
   return (
     <>
@@ -144,45 +127,12 @@ export default function SettingsPage() {
           />
         </Section>
 
-        {/* ---------------- TMDB ---------------- */}
+        {/* ---------------- Compte BetaSeries ---------------- */}
         <Section
-          title="Clé TMDB (facultative)"
-          hint="Les séries et l’animation occidentale passent par TVmaze, sans aucune clé ni inscription. Une clé TMDB n’apporte qu’une chose de plus : la disponibilité exacte par plateforme en France, là où TVmaze donne la chaîne d’origine. Si tu ne veux pas fournir de données personnelles à TMDB, laisse ce champ vide — l’app fonctionne entièrement sans."
+          title="Compte BetaSeries"
+          hint="BetaSeries est desormais la source unique : ta liste, ta progression et ton planning vivent sur ton compte, donc tu retrouves la meme chose ici et sur leur site. La cle et le jeton restent sur cet appareil (IndexedDB) et ne partent jamais dans le bundle."
         >
-          <div className="flex gap-2">
-            <input
-              type="password"
-              value={keyDraft}
-              onChange={(e) => setKeyDraft(e.target.value)}
-              placeholder="Clé API v3"
-              autoComplete="off"
-              className="min-w-0 flex-1 rounded-lg border px-3 py-2 text-sm"
-              style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
-            />
-            <button
-              type="button"
-              onClick={() => {
-                void update({ tmdbApiKey: keyDraft.trim() || null });
-                flash(keyDraft.trim() ? 'Clé enregistrée.' : 'Clé supprimée.');
-              }}
-              className="tap shrink-0 rounded-lg px-3 py-2 text-sm font-semibold text-white"
-              style={{ background: 'var(--accent)' }}
-            >
-              OK
-            </button>
-          </div>
-          <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
-            La clé reste sur cet appareil (IndexedDB), elle n’est jamais envoyée ailleurs que chez
-            TMDB.{' '}
-            <a
-              href="https://www.themoviedb.org/settings/api"
-              target="_blank"
-              rel="noreferrer"
-              className="underline"
-            >
-              Obtenir une clé
-            </a>
-          </p>
+          <BetaSeriesLogin />
         </Section>
 
         {/* ---------------- Import ---------------- */}
@@ -320,20 +270,6 @@ export default function SettingsPage() {
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={() => void doResync()}
-              disabled={busy === 'resync'}
-              className="tap flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold disabled:opacity-50"
-              style={{ background: 'var(--surface-2)' }}
-            >
-              {busy === 'resync' && <Spinner size={12} />}
-              {busy === 'resync'
-                ? resyncProgress
-                  ? `Synchronisation ${resyncProgress.done}/${resyncProgress.total}…`
-                  : 'Synchronisation…'
-                : 'Réenrichir les fiches'}
-            </button>
-            <button
-              type="button"
               onClick={async () => {
                 await clearCache();
                 notifyStoreChanged();
@@ -381,7 +317,7 @@ export default function SettingsPage() {
         </Section>
 
         <p className="pb-4 text-center text-[10px]" style={{ color: 'var(--text-muted)' }}>
-          Données : AniList (planning anime), ADN (sorties FR), TMDB (séries).
+          Données : BetaSeries.
         </p>
       </div>
 

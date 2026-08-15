@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "next lint",
     "icons": "node scripts/generate-icons.mjs",
-    "dump": "node scripts/dump-catalog.mjs"
+    "probe-bs": "node --env-file=.env scripts/probe-betaseries.mjs"
   },
   "dependencies": {
     "date-fns": "^4.4.0",

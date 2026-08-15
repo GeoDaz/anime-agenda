@@ -40,6 +40,26 @@ export const PLATFORMS: Record<PlatformId, PlatformMeta> = {
     color: '#00a8e1',
     badgeClass: 'bg-[#00a8e1]/15 text-[#00789f] dark:text-[#68d4f5] ring-[#00a8e1]/30',
   },
+  hbomax: {
+    id: 'hbomax',
+    label: 'HBO Max',
+    color: '#991eeb',
+    badgeClass: 'bg-[#991eeb]/15 text-[#6b12a6] dark:text-[#c98cf5] ring-[#991eeb]/30',
+  },
+  paramount: {
+    id: 'paramount',
+    label: 'Paramount+',
+    color: '#0064ff',
+    badgeClass: 'bg-[#0064ff]/15 text-[#0047b3] dark:text-[#79aeff] ring-[#0064ff]/30',
+  },
+  appletv: {
+    id: 'appletv',
+    label: 'Apple TV',
+    // Apple TV+ est monochrome : un gris ardoise reste lisible dans les deux
+    // themes, la ou un noir de marque disparaitrait en mode sombre.
+    color: '#5a5a5f',
+    badgeClass: 'bg-[#5a5a5f]/15 text-[#3f3f46] dark:text-[#d4d4d8] ring-[#5a5a5f]/30',
+  },
   other: {
     id: 'other',
     label: 'Autre',
@@ -55,10 +75,13 @@ export const TRACKED_PLATFORMS: PlatformId[] = [
   'netflix',
   'disneyplus',
   'primevideo',
+  'hbomax',
+  'paramount',
+  'appletv',
 ];
 
 /**
- * Normalise un nom de plateforme arbitraire (AniList `site`, TMDB `provider_name`)
+ * Normalise un nom de plateforme arbitraire (BetaSeries `platforms.svods[].name`)
  * vers notre identifiant interne. Tout ce qui n'est pas reconnu tombe en `other`,
  * volontairement : mieux vaut afficher "Autre" que perdre l'info.
  */
@@ -66,6 +89,19 @@ export function normalizePlatform(raw: string): PlatformId {
   const s = raw.toLowerCase().replace(/[\s._-]/g, '');
 
   if (s.includes('crunchyroll')) return 'crunchyroll';
+
+  /*
+   * Noms tels que BetaSeries les ecrit pour la France, verifies sur
+   * /platforms/list?country=FR : « HBO Max », « Paramount+ », « Apple TV ».
+   *
+   * Le `+` de « Paramount+ » n'est pas retire par la normalisation, d'ou un test
+   * par inclusion. Et « Apple TV » doit etre distingue d'« Apple iTunes », un
+   * service VOD different present dans la meme liste : on exige donc le prefixe
+   * exact plutot qu'un simple `includes('apple')`.
+   */
+  if (s.includes('hbo')) return 'hbomax';
+  if (s.includes('paramount')) return 'paramount';
+  if (s.startsWith('appletv')) return 'appletv';
   if (s.includes('animationdigitalnetwork') || s.includes('animedigitalnetwork') || s === 'adn')
     return 'adn';
   if (s.includes('netflix')) return 'netflix';

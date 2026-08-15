@@ -1,5 +1,8 @@
-// Modele de donnees. Regle d'or : le store local est la source de verite.
-// Les providers (AniList / ADN / TMDB) ne font qu'enrichir, jamais ecraser.
+// Modele de donnees.
+//
+// BetaSeries est desormais la source unique : la liste, la progression et le
+// planning vivent sur le compte du membre. Le stockage local ne sert plus qu au
+// cache et aux overrides d affichage.
 
 export type MediaKind = 'anime' | 'series';
 
@@ -11,13 +14,12 @@ export type MediaKind = 'anime' | 'series';
  * Castlevania). Etiqueter la seconde « live action » serait faux, donc on
  * stocke l'information plutot que de la deduire.
  *
- * TVmaze la donne proprement via son champ `type` : `Scripted` -> live,
- * `Animation` -> animation.
+ * BetaSeries ne l'expose pas directement : on le deduit du pays d'origine.
  */
 export type MediaSubtype = 'live' | 'animation';
 
-/** D'ou vient la fiche a l'origine. `manual` = saisie a la main, aucun provider. */
-export type ProviderId = 'anilist' | 'tmdb' | 'tvmaze' | 'adn' | 'manual';
+/** Seule origine possible : BetaSeries fait autorite sur toute la bibliotheque. */
+export type ProviderId = 'betaseries';
 
 export type PlatformId =
   | 'crunchyroll'
@@ -25,9 +27,18 @@ export type PlatformId =
   | 'netflix'
   | 'disneyplus'
   | 'primevideo'
+  | 'hbomax'
+  | 'paramount'
+  | 'appletv'
   | 'other';
 
-export type WatchStatus = 'watching' | 'planned' | 'paused' | 'done' | 'dropped';
+/**
+ * Etat de suivi.
+ *
+ * « En pause » a ete retire : BetaSeries ne connait pas cet etat, donc rien
+ * n'aurait pu l'alimenter ni le conserver d'une session a l'autre.
+ */
+export type WatchStatus = 'watching' | 'planned' | 'done' | 'dropped';
 
 /**
  * Champs que l'utilisateur peut forcer en local. Tout ce qui est defini ici
@@ -38,22 +49,18 @@ export interface LocalOverrides {
   coverUrl?: string;
   platforms?: PlatformId[];
   totalEpisodes?: number | null;
-  /** Jour de parution 0=dimanche..6=samedi, pour les series sans planning provider. */
-  weekday?: number | null;
-  /** "HH:mm" heure locale, utilise avec weekday. */
-  time?: string | null;
   hidden?: boolean;
 }
 
 /** Une serie suivie, telle que stockee en IndexedDB. */
 export interface TrackedItem {
-  /** uid local stable : `${provider}:${externalId}` ou `manual:${uuid}`. */
+  /** uid local stable : `betaseries:${externalId}`. */
   id: string;
   kind: MediaKind;
   /** Live action ou animation. Absent sur les fiches d'avant ce champ. */
   subtype?: MediaSubtype | null;
   provider: ProviderId;
-  /** id chez le provider (AniList mediaId, TMDB tv id, ADN show id). */
+  /** id chez BetaSeries. */
   externalId: string | null;
 
   // --- donnees provider (rafraichies, jamais editees a la main) ---
@@ -63,12 +70,9 @@ export interface TrackedItem {
   platforms: PlatformId[];
   totalEpisodes?: number | null;
 
-  /** Correspondances trouvees vers d'autres providers, mises en cache. */
+  /** Identifiant BetaSeries de la fiche. */
   links?: {
-    anilistId?: number | null;
-    tmdbId?: number | null;
-    tvmazeId?: number | null;
-    adnShowId?: number | null;
+    betaseriesId?: number | null;
   };
 
   // --- etat utilisateur ---
@@ -79,6 +83,20 @@ export interface TrackedItem {
   watchedEpisodes?: number[];
 
   overrides?: LocalOverrides;
+
+  /** Episodes restant a voir, tel que compte par BetaSeries. */
+  remaining?: number;
+  /**
+   * Date du dernier episode diffuse (epoch ms). Renseignee seulement si une
+   * vraie date est disponible ; sinon `null`, et le tri retombe sur `sortIndex`.
+   */
+  lastAiredAt?: number | null;
+  /**
+   * Rang renvoye par l'API, tri « diffusion » compris.
+   * Conserve parce que le serveur sait trier sur des champs que l'app ne recoit
+   * pas ; le refaire en local donnerait un ordre different et faux.
+   */
+  sortIndex?: number;
 
   addedAt: number;
   updatedAt: number;
@@ -108,7 +126,7 @@ export interface AiringEntry {
   airsAt: number;
   platforms: PlatformId[];
   /** Qui a fourni cette date. Sert a arbitrer les conflits. */
-  source: 'adn' | 'tmdb' | 'tvmaze' | 'anilist' | 'manual';
+  source: 'betaseries';
   /** Lien direct de visionnage quand le provider en donne un. */
   url?: string | null;
   watched: boolean;
@@ -122,11 +140,7 @@ export interface SearchResult {
   subtype?: MediaSubtype | null;
   title: string;
   originalTitle?: string | null;
-  /**
-   * Tous les autres libelles connus (anglais AniList, titre original TMDB...).
-   * Indispensable au rapprochement : "The Eminence in Shadow" n'existe que dans
-   * le champ anglais d'AniList, dont `title` ne contient que le romaji.
-   */
+  /** Autres libelles connus (titre original notamment). */
   altTitles?: string[];
   coverUrl?: string | null;
   platforms: PlatformId[];
@@ -138,7 +152,20 @@ export interface SearchResult {
 }
 
 export interface AppSettings {
-  /** Cle TMDB v3 saisie dans l'app (active le support des series live-action). */
+  // --- Session BetaSeries : source unique de l'application ---
+  /** Cle d'application BetaSeries. Jamais dans le bundle, toujours en IndexedDB. */
+  betaseriesApiKey: string | null;
+  /** Jeton de session du membre. Revocable via POST /members/destroy. */
+  betaseriesToken: string | null;
+  betaseriesLogin: string | null;
+  betaseriesMemberId: number | null;
+
+  /**
+   * Ancienne cle TMDB.
+   * Conservee uniquement pour ne pas casser la lecture d'anciennes sauvegardes ;
+   * plus aucun appel TMDB n'est fait.
+   * @deprecated
+   */
   tmdbApiKey: string | null;
   /** Plateformes retenues dans l'agenda. Vide = toutes. */
   platformFilter: PlatformId[];
